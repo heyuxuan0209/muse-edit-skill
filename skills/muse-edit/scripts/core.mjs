@@ -91,7 +91,7 @@ function inline(text,rules=[]){
   return out;
 }
 function basic(text){return leaf(text)}
-function card(pkg,key,part=''){
+function card(pkg,key,part='',audit=false){
   const c=pkg.components[key],meta=pkg.courseMeta;
   if(!c?.enabled||key==='quote')return '';
   let title=c.title,body='';
@@ -102,13 +102,14 @@ function card(pkg,key,part=''){
   if(key==='practice'){title=part==='next'?'下一课':c.title;body=leaf((part==='next'?bodyLines.slice(1):bodyLines.slice(0,1)).join('\n'))}
   else if(key==='three-r')body+='<section style="display:block;font-size:0;">'+bodyLines.map((x,i)=>'<section style="display:inline-block;vertical-align:top;width:'+((100-(bodyLines.length-1)*3.5)/Math.max(1,bodyLines.length))+'%;margin-right:'+(i===bodyLines.length-1?0:3.5)+'%;font-size:14px;">'+leaf(String(i+1).padStart(2,'0'),'font-weight:700;color:#9173b5;')+'<p style="margin:6px 0;">'+leaf(x)+'</p></section>').join('')+'</section>';
   else body+=bodyLines.map(x=>'<p style="margin:7px 0;font-size:14px;line-height:1.8;">'+leaf(x)+'</p>').join('');
-  return '<section style="margin:22px 0;padding:18px;background-color:'+(key==='listen'?'#f2ecf8':'#f1f5f6')+';border-radius:12px;line-height:1.8;">'+leaf(title,'display:block;margin-bottom:8px;font-weight:700;color:#473163;font-size:16px;')+body+'</section>';
+  return '<section'+(audit?' data-reading-component="'+key+'"':'')+' style="margin:22px 0;padding:18px;background-color:'+(key==='listen'?'#f2ecf8':'#f1f5f6')+';border-radius:12px;line-height:1.8;">'+leaf(title,'display:block;margin-bottom:8px;font-weight:700;color:#473163;font-size:16px;')+body+'</section>';
 }
 export function renderArticle(pkg,{audit=false}={}){
   const result=validate(pkg);if(!result.valid)throw new Error(result.errors.join('\n'));
   const meta=pkg.courseMeta,anchors=meta.anchors||{};
   const rules=[...(pkg.components.quote.enabled?pkg.editorialRules:[]),...(pkg.customEditorialRules||[])].filter(r=>r.format!=='none');
-  let html=card(pkg,'listen')+card(pkg,'path'),code=false;
+  const renderCard=(key,part='')=>card(pkg,key,part,audit);
+  let html=renderCard('listen')+renderCard('path'),code=false;
   const lines=pkg.transcriptMarkdown.split(/\r?\n/);
   lines.forEach((raw,index)=>{
     const line=raw.trim();if(!line&&!code)return;
@@ -117,13 +118,13 @@ export function renderArticle(pkg,{audit=false}={}){
     if(/^(```|~~~)/.test(line)){code=!code;return}
     if(!code&&/^(\*\*\*|---)\s*$/.test(line)){html+='<p style="text-align:center;margin:24px 0;">'+leaf('···')+'</p>';return}
     const keys=Object.entries(ANCHORS).filter(([k,a])=>anchors[a]&&raw.includes(anchors[a])).map(([k])=>k);
-    keys.filter(k=>pkg.components[k].position==='before').forEach(k=>html+=card(pkg,k));
+    keys.filter(k=>pkg.components[k].position==='before').forEach(k=>html+=renderCard(k));
     if(heading&&!code){
       // H1 belongs to preview header/platform title; retain other H1s as headings.
       if(heading[1].length!==1||index!==lines.findIndex(l=>/^#\s/.test(l)))html+='<h3'+sourceAttr+' style="margin:30px 0 16px;color:#473163;font-size:20px;line-height:1.6;">'+inline(heading[2])+'</h3>';
     }else html+='<p'+sourceAttr+' style="'+pstyle+(code?'font-family:monospace;white-space:pre-wrap;background-color:#f4f2f6;padding:10px;':'')+'">'+(code?leaf(raw,'',false):inline(line,rules))+'</p>';
-    keys.filter(k=>pkg.components[k].position!=='before').forEach(k=>html+=card(pkg,k));
-    if(anchors.nextLesson&&raw.includes(anchors.nextLesson))html+=card(pkg,'practice','next');
+    keys.filter(k=>pkg.components[k].position!=='before').forEach(k=>html+=renderCard(k));
+    if(anchors.nextLesson&&raw.includes(anchors.nextLesson))html+=renderCard('practice','next');
   });
   return '<section style="padding:18px 12px;margin:0;background-color:#fffdf8;color:#5f5964;font-family:-apple-system,BlinkMacSystemFont,\'PingFang SC\',\'Microsoft YaHei\',sans-serif;font-size:14px !important;line-height:1.9;-webkit-text-size-adjust:none;text-size-adjust:none;">'+(meta.subtitle?'<p style="'+pstyle+'">'+leaf(meta.subtitle)+'</p>':'')+html+'</section>';
 }

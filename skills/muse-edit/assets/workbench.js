@@ -15,6 +15,25 @@ function persist(){
 }
 function changed(){confirmed=false;$('confirm').textContent='确认当前阅读层';$('saveStatus').textContent='修改待保存…';renderPreview();clearTimeout(saveTimer);saveTimer=setTimeout(persist,350)}
 function enabledRules(){return [...(current.components.quote.enabled?current.editorialRules:[]),...(current.customEditorialRules||[])]}
+let linkedTimer;
+function focusPreview(target,smooth=true){
+  showTab('articlePane');
+  if(!target)return;
+  $('article').querySelectorAll('.linked-reading').forEach(el=>el.classList.remove('linked-reading'));
+  target.classList.add('linked-reading');clearTimeout(linkedTimer);linkedTimer=setTimeout(()=>target.classList.remove('linked-reading'),2200);
+  const pane=document.querySelector('.preview-scroll'),rect=target.getBoundingClientRect(),bounds=pane.getBoundingClientRect();
+  pane.scrollTo({top:pane.scrollTop+rect.top-bounds.top-Math.max(24,(pane.clientHeight-Math.min(rect.height,pane.clientHeight-48))/2),behavior:smooth?'smooth':'auto'});
+}
+function sourceTarget(text){
+  if(!text)return null;
+  const index=current.transcriptMarkdown.split(/\r?\n/).findIndex(line=>plainInline(line).includes(plainInline(text)));
+  return $('article').querySelector('[data-source-line="'+index+'"]');
+}
+function focusComponent(key,smooth=true){
+  const card=$('article').querySelector('[data-reading-component="'+key+'"]');
+  const anchor=key==='quote'?current.editorialRules[0]?.text:current.courseMeta.anchors?.[ANCHORS[key]];
+  focusPreview(card||sourceTarget(anchor)||$('article').firstElementChild,smooth);
+}
 function renderPreview(){
   const report=validate(current);
   $('validation').className='status'+(!report.valid?' error':report.warnings.length?' warning':'');
@@ -39,7 +58,7 @@ function renderPreview(){
 function renderMap(){
   $('map').replaceChildren();
   [...$('article').querySelectorAll('h3')].forEach((h,i)=>{h.id='heading-'+i;const b=document.createElement('button');b.textContent=h.textContent;b.onclick=()=>h.scrollIntoView({behavior:'smooth',block:'start'});$('map').append(b)});
-  for(const key of KEYS.filter(k=>current.components[k].enabled&&k!=='quote')){const b=document.createElement('button');b.textContent='编辑 · '+current.components[key].name;b.onclick=()=>{const d=$('component-'+key);d.open=true;d.scrollIntoView({behavior:'smooth',block:'center'})};$('map').append(b)}
+  for(const key of KEYS.filter(k=>current.components[k].enabled&&k!=='quote')){const b=document.createElement('button');b.textContent='编辑 · '+current.components[key].name;b.onclick=()=>{const d=$('component-'+key);d.open=true;d.scrollIntoView({behavior:'smooth',block:'center'});focusComponent(key)};$('map').append(b)}
 }
 function field(label,value,onInput,multi=false){
   const l=document.createElement('label');l.className='field';const span=document.createElement('span');span.textContent=label;const input=document.createElement(multi?'textarea':'input');input.value=value??'';if(multi)input.rows=3;input.addEventListener('input',()=>onInput(input.value));l.append(span,input);return l;
@@ -77,6 +96,10 @@ function renderControls(){
   $('components').replaceChildren();
   for(const key of KEYS){
     const c=current.components[key],d=document.createElement('details'),summary=document.createElement('summary'),toggle=document.createElement('input'),name=document.createElement('span');d.className='card';d.id='component-'+key;
+    d.addEventListener('toggle',()=>{if(d.open&&d.isConnected)focusComponent(key)});
+    d.addEventListener('click',()=>focusComponent(key));
+    d.addEventListener('input',()=>focusComponent(key,false));
+    d.addEventListener('change',()=>focusComponent(key,false));
     toggle.type='checkbox';toggle.checked=c.enabled;toggle.setAttribute('aria-label','启用'+c.name);toggle.onclick=e=>e.stopPropagation();toggle.onchange=()=>{c.enabled=toggle.checked;changed()};name.textContent=c.name;summary.append(toggle,name);d.append(summary);
     if(key==='quote'){const p=document.createElement('p');p.className='muted';p.textContent='控制课程建议的重点表达；你补充的重点独立生效。';d.append(p)}
     else {
@@ -98,6 +121,7 @@ function renderRules(){
   all.forEach(rule=>{const row=document.createElement('div');row.className='rule';const title=document.createElement('strong');title.textContent=rule.label;const quote=document.createElement('blockquote');quote.textContent=rule.text;const why=document.createElement('p');why.className='muted';why.textContent=rule.reason;const buttons=document.createElement('div');buttons.className='row';
     for(const f of FORMATS){const b=document.createElement('button');b.textContent=labels[f];b.className=rule.format===f?'active':'';b.setAttribute('aria-pressed',String(rule.format===f));b.onclick=()=>{rule.format=f;renderRules();changed()};buttons.append(b)}
     if(current.customEditorialRules.includes(rule)){const b=document.createElement('button');b.textContent='移除';b.onclick=()=>{current.customEditorialRules=current.customEditorialRules.filter(r=>r!==rule);renderRules();changed()};buttons.append(b)}
+    row.addEventListener('click',()=>focusPreview(sourceTarget(rule.text)));
     row.append(title,quote,why,buttons);$('rules').append(row);
   });
 }

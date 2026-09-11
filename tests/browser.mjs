@@ -30,8 +30,18 @@ try{
   assert.equal(await page.locator('#sourceText').textContent(),demo.transcriptMarkdown);
   assert.equal(await page.locator('#article [data-source-line]').count(),9);
   // Changes must survive a real reload, without altering source.
+  await page.locator('[data-tab="audioPane"]').click();
   await page.locator('#component-reflection summary').click();
+  assert.equal(await page.locator('#articlePane').isVisible(),true);
+  await page.waitForFunction(()=>{const el=document.querySelector('[data-reading-component="reflection"]'),pane=document.querySelector('.preview-scroll');const a=el.getBoundingClientRect(),b=pane.getBoundingClientRect();return a.top>=b.top&&a.bottom<=b.bottom});
+  assert.equal(await page.locator('[data-reading-component="reflection"].linked-reading').count(),1);
+  await page.locator('#component-reflection input[type=checkbox]').uncheck();
+  assert.equal(await page.locator('[data-reading-component="reflection"]').count(),0);
+  assert.ok((await page.locator('.linked-reading[data-source-line]').textContent()).includes('一次只改变一个条件'));
+  await page.locator('#component-reflection input[type=checkbox]').check();
+  assert.equal(await page.locator('[data-reading-component="reflection"].linked-reading').count(),1);
   await page.locator('#component-reflection textarea').fill('只做一个小实验，再回看结果。');
+  assert.ok((await page.locator('[data-reading-component="reflection"].linked-reading').textContent()).includes('只做一个小实验'));
   await page.waitForFunction(()=>document.getElementById('saveStatus').textContent.includes('已保存'));
   await page.reload();assert.equal(await page.locator('#sourceText').textContent(),demo.transcriptMarkdown);
   assert.ok((await page.locator('#article').textContent()).includes('只做一个小实验，再回看结果。'));
@@ -43,7 +53,7 @@ try{
   // Real clipboard, not a mocked navigator.clipboard.
   await page.locator('#copyBody').click();await page.waitForFunction(()=>document.getElementById('toast').textContent.startsWith('已复制，请到'));
   const clipboard=await page.evaluate(async()=>{const items=await navigator.clipboard.read();return await (await items[0].getType('text/html')).text()});
-  assert.ok(clipboard.includes('记录事实，再作判断。'));assert.ok(!clipboard.includes('data-source-line'));
+  assert.ok(clipboard.includes('记录事实，再作判断。'));assert.ok(!clipboard.includes('data-source-line'));assert.ok(!clipboard.includes('data-reading-component'));assert.ok(!clipboard.includes('linked-reading'));
   // Export then feed the downloaded JSON through the actual file input.
   const pending=page.waitForEvent('download');await page.locator('#exportButton').click();const exported=await pending;const file=path.join(out,'roundtrip.course.json');await exported.saveAs(file);
   await page.locator('#importFile').setInputFiles(file);await page.waitForFunction(()=>document.getElementById('toast').textContent.startsWith('已导入课程'));
