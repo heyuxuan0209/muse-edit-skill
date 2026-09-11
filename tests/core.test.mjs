@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {clone,validate,renderArticle} from '../skills/muse-edit/scripts/core.mjs';
+import {clone,validate,renderArticle,transcriptReview,podcastNotes} from '../skills/muse-edit/scripts/core.mjs';
 const demo=JSON.parse(fs.readFileSync(new URL('../examples/demo.course.json',import.meta.url),'utf8'));
 const cli=fileURLToPath(new URL('../skills/muse-edit/scripts/muse.mjs',import.meta.url));
 const run=(...args)=>spawnSync(process.execPath,[cli,...args],{encoding:'utf8'});
@@ -57,4 +57,12 @@ test('code punctuation stays literal, Chinese display punctuation changes withou
 });
 test('a quoted sentence containing original bold stays one continuous block',()=>{
   const p=clone(demo);p.transcriptMarkdown=p.transcriptMarkdown.replace('记录事实，再作判断。','记录**事实**，再作判断。');const html=renderArticle(p);assert.equal(html.split('border-left:3px solid').length-1,1);assert.ok(html.includes('记录事实，再作判断。'));
+});
+
+test('publish notes include the listening path and transcript review has separate chapter headings',()=>{
+  assert.ok(podcastNotes(demo).includes(demo.components.path.body.split('\n')[0]));
+  const review=transcriptReview(demo);assert.ok(review.includes('【章节标题建议】'));assert.ok(review.endsWith(demo.transcriptMarkdown));
+});
+test('practice without a next-lesson anchor does not silently omit its remaining lines',()=>{
+  const p=clone(demo);p.courseMeta.anchors.nextLesson='';p.components.practice.body='第一行\n第二行必须保留';assert.ok(renderArticle(p).includes('第二行必须保留'));
 });

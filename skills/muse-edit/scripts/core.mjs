@@ -99,9 +99,10 @@ function card(pkg,key,part='',audit=false){
   if(key==='concept'&&meta.conceptItems?.length){
     body+='<section style="display:block;font-size:0;">'+meta.conceptItems.map((x,i)=>'<section style="display:inline-block;vertical-align:top;width:'+((100-(meta.conceptItems.length-1)*4)/meta.conceptItems.length)+'%;margin-right:'+(i===meta.conceptItems.length-1?0:4)+'%;font-size:14px;">'+leaf(x.title,'font-weight:700;')+'<p style="margin:6px 0;">'+leaf(x.body)+'</p></section>').join('')+'</section>';
   }
-  if(key==='practice'){title=part==='next'?'下一课':c.title;body=leaf((part==='next'?bodyLines.slice(1):bodyLines.slice(0,1)).join('\n'))}
+  if(key==='practice'){title=part==='next'?'下一课':c.title;body=leaf((part==='next'?bodyLines.slice(1):meta.anchors.nextLesson?bodyLines.slice(0,1):bodyLines).join('\n'))}
   else if(key==='three-r')body+='<section style="display:block;font-size:0;">'+bodyLines.map((x,i)=>'<section style="display:inline-block;vertical-align:top;width:'+((100-(bodyLines.length-1)*3.5)/Math.max(1,bodyLines.length))+'%;margin-right:'+(i===bodyLines.length-1?0:3.5)+'%;font-size:14px;">'+leaf(String(i+1).padStart(2,'0'),'font-weight:700;color:#9173b5;')+'<p style="margin:6px 0;">'+leaf(x)+'</p></section>').join('')+'</section>';
   else body+=bodyLines.map(x=>'<p style="margin:7px 0;font-size:14px;line-height:1.8;">'+leaf(x)+'</p>').join('');
+  if(key==='listen'){body=leaf('本节音频 · '+(meta.durationLabel||'时长待核对'),'display:block;color:#9173b5;')+body;if(audit)body+='<button type="button" data-preview-audio="">试听本节音频 →</button>';else body+=leaf('发布时请在公众号后台于此处插入本课原生音频。','display:block;color:#9173b5;')}
   return '<section'+(audit?' data-reading-component="'+key+'"':'')+' style="margin:22px 0;padding:18px;background-color:'+(key==='listen'?'#f2ecf8':'#f1f5f6')+';border-radius:12px;line-height:1.8;">'+leaf(title,'display:block;margin-bottom:8px;font-weight:700;color:#473163;font-size:16px;')+body+'</section>';
 }
 export function renderArticle(pkg,{audit=false}={}){
@@ -129,5 +130,10 @@ export function renderArticle(pkg,{audit=false}={}){
   return '<section style="padding:18px 12px;margin:0;background-color:#fffdf8;color:#5f5964;font-family:-apple-system,BlinkMacSystemFont,\'PingFang SC\',\'Microsoft YaHei\',sans-serif;font-size:14px !important;line-height:1.9;-webkit-text-size-adjust:none;text-size-adjust:none;">'+(meta.subtitle?'<p style="'+pstyle+'">'+leaf(meta.subtitle)+'</p>':'')+html+'</section>';
 }
 export function podcastNotes(pkg){
-  const m=pkg.courseMeta;return [m.fullTitle,m.podcast?.intro,...(m.podcast?.notes||[]),pkg.articleLink?'配套文章：'+pkg.articleLink:'配套文章：发布图文后回填链接。'].filter(Boolean).join('\n\n');
+  const m=pkg.courseMeta;return ['本节音频 · '+(m.durationLabel||'时长待核对'),m.fullTitle,m.podcast?.intro||pkg.components.listen.body,pkg.components.path.title+'：\n'+pkg.components.path.body.split('\n').filter(Boolean).map(x=>'• '+x).join('\n'),...(m.podcast?.notes||[]),pkg.articleLink?'配套文章：'+pkg.articleLink:'配套文章：发布图文后回填链接。'].filter(Boolean).join('\n\n');
+}
+
+export function transcriptReview(pkg){
+  const headings=[...pkg.transcriptMarkdown.matchAll(/^##\s+(.+)$/gm)].map(m=>'• '+m[1]);
+  return [pkg.courseMeta.fullTitle,'【发布校对说明】','章节标题与完整逐字稿供核对。时间点须按真实音频识别或人工试听确定，不伪造时间码。','【章节标题建议】',...headings,'【完整逐字稿】',pkg.transcriptMarkdown].join('\n\n');
 }

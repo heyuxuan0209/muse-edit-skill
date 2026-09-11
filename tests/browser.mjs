@@ -58,6 +58,28 @@ try{
   const pending=page.waitForEvent('download');await page.locator('#exportButton').click();const exported=await pending;const file=path.join(out,'roundtrip.course.json');await exported.saveAs(file);
   await page.locator('#importFile').setInputFiles(file);await page.waitForFunction(()=>document.getElementById('toast').textContent.startsWith('已导入课程'));
   assert.equal(await page.evaluate(()=>renderArticle(current)),htmlBefore);
+  // Restore must use the imported course as its baseline, including nested metadata.
+  const customBase=structuredClone(demo);customBase.courseMeta.id='imported-baseline';customBase.components.reflection.body='导入课自己的推荐';customBase.courseMeta.conceptItems=[{title:'导入概念',body:'导入解释'}];
+  const baselineFile=path.join(out,'baseline.course.json');fs.writeFileSync(baselineFile,JSON.stringify(customBase));
+  await page.locator('#importFile').setInputFiles(baselineFile);
+  await page.locator('#component-reflection summary').click();await page.locator('#component-reflection textarea').fill('临时修改');
+  await page.waitForFunction(()=>document.getElementById('saveStatus').textContent.includes('已保存'));await page.reload();
+  await page.locator('#component-reflection summary').click();await page.locator('#component-reflection input[type=checkbox]').uncheck();
+  assert.ok((await page.locator('#map').textContent()).includes('已移除'));
+  await page.locator('#component-reflection button').filter({hasText:'恢复建议'}).click();
+  assert.equal(await page.locator('#component-reflection input[type=checkbox]').isChecked(),true);
+  assert.equal(await page.locator('#component-reflection textarea').inputValue(),'导入课自己的推荐');
+  await page.locator('#rules button').filter({hasText:'不处理'}).first().click();await page.locator('#resetEditorial').click();
+  assert.equal(await page.evaluate(()=>current.editorialRules[0].format===current.editorialRules[0].recommended),true);
+  await page.locator('#confirm').click();assert.equal(await page.locator('#publishReady').isVisible(),true);
+  await page.reload();assert.equal(await page.locator('#publishReady').isVisible(),true);
+  await page.locator('#component-reflection summary').click();await page.locator('#component-reflection textarea').fill('再次修改');
+  assert.equal(await page.locator('#publishReady').isVisible(),false);
+  await page.locator('[data-tab="notesPane"]').click();await page.locator('#map button').first().click();assert.equal(await page.locator('#articlePane').isVisible(),true);
+  await page.locator('#component-listen input[type=checkbox]').check();await page.locator('[data-preview-audio]').click();assert.equal(await page.locator('#audioPane').isVisible(),true);
+  await page.locator('#openNotes').click();assert.ok((await page.locator('#podcastText').textContent()).includes(customBase.components.path.body.split('\n')[0]));
+  await page.locator('[data-tab="articlePane"]').click();
+  await page.locator('#importFile').setInputFiles(file);
   // Bad input reports failure and preserves current course.
   const bad=path.join(out,'invalid.json');fs.writeFileSync(bad,JSON.stringify({...demo,transcriptMarkdown:''}));await page.locator('#importFile').setInputFiles(bad);await page.waitForFunction(()=>document.getElementById('toast').textContent.startsWith('导入失败'));assert.equal(await page.evaluate(()=>renderArticle(current)),htmlBefore);
   // Invalid link blocks export; valid link propagates to notes.

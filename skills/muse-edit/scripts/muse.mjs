@@ -5,7 +5,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
-import {KEYS,NAMES,validate,renderArticle,podcastNotes,clone} from './core.mjs';
+import {transcriptReview,KEYS,NAMES,validate,renderArticle,podcastNotes,clone} from './core.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const hash=data=>crypto.createHash('sha256').update(data).digest('hex');
@@ -75,7 +75,7 @@ function build(opts){
   for(const f of files)fs.writeFileSync(path.join(out,'assets',f.name),f.bytes);
   write(path.join(out,'course.json'),pkg);write(path.join(out,'transcript.md'),pkg.transcriptMarkdown);write(path.join(out,'article.html'),html);
   write(path.join(out,'title.txt'),pkg.courseMeta.articleTitle);write(path.join(out,'podcast-notes.txt'),podcastNotes(pkg));
-  write(path.join(out,'transcript-review.txt'),'章节标题与完整逐字稿供核对。此文件不包含时间码；时间点须按真实音频识别或人工核对。\n\n'+pkg.transcriptMarkdown);
+  write(path.join(out,'transcript-review.txt'),transcriptReview(pkg));
   write(path.join(out,'发布说明.md'),'# '+pkg.courseMeta.fullTitle+'\n\n1. 打开 index.html 检查全文和阅读层。\n2. 修改会保存在当前浏览器；导出配置才是可迁移文件备份。\n3. 点击“下载当前正文”取得修改后的 HTML；目录里的 article.html 是构建时快照。\n4. 在公众号后台分别填写标题和图文正文，检查手机预览。\n5. 音频、方形封面和轻量节目笔记分别上传；原生音频和时间轴不会随 HTML 复制。\n6. 图文发布后回填链接，再导出播客简介。\n\n'+report.warnings.map(x=>'- '+x).join('\n')+'\n');
   const envelope={package:pkg,sourceHash:hash(pkg.transcriptMarkdown),buildId:hash(JSON.stringify(pkg)).slice(0,20)};
   let page=fs.readFileSync(path.join(ROOT,'assets','workbench.html'),'utf8');
