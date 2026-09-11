@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "1.0",
+  "courseMeta": {
+    "id": "demo-observe-act",
+    "series": "学习方法 · 虚构示例",
+    "lessonNumber": 1,
+    "articleTitle": "把观察变成行动",
+    "fullTitle": "把观察变成行动",
+    "subtitle": "先记录，再选择，最后复盘",
+    "sourceFilename": "transcript.md",
+    "durationLabel": "未提供音频",
+    "durationClock": "",
+    "assets": {
+      "audio": "",
+      "audioFilename": "",
+      "articleCover": "",
+      "articleCoverFilename": "",
+      "podcastCover": "",
+      "podcastCoverFilename": ""
+    },
+    "anchors": {
+      "concept": "事实是你看见的变化",
+      "threeR": "行动分成三步：",
+      "reflection": "一次只改变一个条件",
+      "practice": "今天的练习：",
+      "nextLesson": "下一课，我们讨论"
+    },
+    "conceptItems": [
+      {
+        "title": "事实",
+        "body": "你看见的变化"
+      },
+      {
+        "title": "判断",
+        "body": "你对变化的解释"
+      }
+    ],
+    "podcast": {
+      "intro": "本课用一个小练习区分事实和判断，再把观察变成行动。",
+      "notes": [
+        "先记录事实，再作判断。",
+        "一次只改变一个条件。"
+      ]
+    }
+  },
+  "transcriptMarkdown": "# 把观察变成行动\n\n## 先记录\n\n记录事实，再作判断。\n\n事实是你看见的变化，判断是你给变化的解释。\n\n## 再尝试\n\n行动分成三步：观察、选择、复盘。\n\n一次只改变一个条件，才容易知道什么起了作用。\n\n## 留下练习\n\n今天的练习：记录一个事实，并写下一个小行动。\n\n下一课，我们讨论怎样复盘。\n",
+  "components": {
+    "listen": {
+      "name": "听音引导",
+      "title": "听音引导",
+      "body": "",
+      "enabled": false,
+      "position": "after"
+    },
+    "path": {
+      "name": "听读路径",
+      "title": "这一节，练习三件事",
+      "body": "区分事实与判断\n把观察变成行动\n用一个小练习开始",
+      "enabled": true,
+      "position": "after"
+    },
+    "quote": {
+      "name": "重点表达",
+      "title": "重点表达",
+      "body": "",
+      "enabled": true,
+      "position": "after"
+    },
+    "three-r": {
+      "name": "行动步骤",
+      "title": "行动步骤",
+      "body": "观察事实\n选择行动\n回看结果",
+      "enabled": true,
+      "position": "after"
+    },
+    "practice": {
+      "name": "练习与下一课",
+      "title": "练习与下一课",
+      "body": "记录一个事实，并写下一个小行动。\n下一课：怎样复盘",
+      "enabled": true,
+      "position": "after"
+    },
+    "concept": {
+      "name": "概念区分",
+      "title": "概念区分",
+      "body": "先把看到的现象写下来，再检查自己的解释。",
+      "enabled": true,
+      "position": "after"
+    },
+    "reflection": {
+      "name": "提醒卡",
+      "title": "提醒卡",
+      "body": "一次只改变一个条件。",
+      "enabled": true,
+      "position": "after"
+    }
+  },
+  "editorialRules": [
+    {
+      "id": "core",
+      "label": "核心顺序",
+      "text": "记录事实，再作判断。",
+      "reason": "概括从观察到行动的顺序。",
+      "recommended": "quote",
+      "format": "quote"
+    }
+  ],
+  "customEditorialRules": [],
+  "articleLink": ""
+}

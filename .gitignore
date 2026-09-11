@@ -1,0 +1,12 @@
+node_modules/
+output/
+test-results/
+.DS_Store
+*.mp3
+*.m4a
+*.wav
+*.mp4
+*.env
+.env*
+__pycache__/
+local-config.json
