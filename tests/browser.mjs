@@ -22,6 +22,11 @@ try{
   const context=await browser.newContext({viewport:{width:1500,height:1000},permissions:['clipboard-read','clipboard-write']});
   const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(origin+'/index.html');await page.locator('#title').waitFor();
+  assert.equal(await page.locator('#importButton').textContent(),'导入课程包');
+  assert.equal(await page.locator('#exportButton').textContent(),'导出本课配置');
+  assert.equal(await page.locator('#copyTop').textContent(),'复制到公众号');
+  for(const id of ['coverAsset','podcastCoverAsset','deliveryPackage']){assert.equal(await page.locator('#'+id).isVisible(),true);assert.equal(await page.locator('#'+id).evaluate(el=>!!el.closest('details')),false)}
+  assert.deepEqual(await page.locator('[data-tab]').allTextContents(),['公众号图文','播客播放','播客原文']);
   assert.equal(await page.locator('#sourceText').textContent(),demo.transcriptMarkdown);
   assert.equal(await page.locator('#article [data-source-line]').count(),9);
   // Changes must survive a real reload, without altering source.
@@ -48,8 +53,19 @@ try{
   // Invalid link blocks export; valid link propagates to notes.
   await page.locator('summary').filter({hasText:'课程信息与发布材料'}).click();await page.locator('#articleLink').fill('https://example.com');assert.equal(await page.locator('#exportButton').isDisabled(),true);
   await page.locator('#articleLink').fill('https://mp.weixin.qq.com/s/example');assert.equal(await page.locator('#exportButton').isDisabled(),false);
-  await page.locator('[data-tab="audioPane"]').click();assert.ok((await page.locator('#podcastText').textContent()).includes('https://mp.weixin.qq.com/s/example'));
+  await page.locator('[data-tab="audioPane"]').click();await page.locator('#openNotes').click();assert.ok((await page.locator('#podcastText').textContent()).includes('https://mp.weixin.qq.com/s/example'));assert.equal(await page.locator('#notesPane').isVisible(),true);
   await page.locator('[data-tab="articlePane"]').click();await page.locator('summary').filter({hasText:'课程信息与发布材料'}).click();
+  // Both prominent cover cards must support real file upload, preview and download.
+  const pixel=path.join(out,'cover.png');fs.writeFileSync(pixel,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+afooAAAAASUVORK5CYII=','base64'));
+  for(const id of ['coverAsset','podcastCoverAsset']){
+    await page.locator('#'+id+' input[type=file]').setInputFiles(pixel);
+    await page.waitForFunction(id=>document.querySelector('#'+id+' img').naturalWidth===1,id);
+    await page.locator('#'+id+' button').filter({hasText:'放大预览'}).click();assert.equal(await page.locator('#imageDialog').isVisible(),true);await page.locator('#closeImage').click();
+    const coverDownload=page.waitForEvent('download');await page.locator('#'+id+' a').click();assert.equal((await coverDownload).suggestedFilename(),'cover.png');
+  }
+  assert.equal(await page.locator('#audioPane').isVisible(),true);
+  assert.ok((await page.locator('#podcastImage').getAttribute('src')).startsWith('data:image/png'));
+  await page.locator('[data-tab="articlePane"]').click();
   await page.locator('#confirm').click();await page.waitForFunction(()=>getComputedStyle(document.getElementById('toast')).display==='none');
   await page.screenshot({path:path.join(out,'desktop.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(out,'mobile.png'),fullPage:true});

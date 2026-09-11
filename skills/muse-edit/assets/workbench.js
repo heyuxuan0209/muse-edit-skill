@@ -13,13 +13,13 @@ function persist(){
   try{localStorage.setItem(storageKey(),JSON.stringify({package:current,confirmed,savedAt:new Date().toISOString()}));$('saveStatus').textContent='已保存到当前浏览器';return true}
   catch{$('saveStatus').textContent='浏览器保存失败，请导出配置';return false}
 }
-function changed(){confirmed=false;$('confirm').textContent='确认阅读层';$('saveStatus').textContent='修改待保存…';renderPreview();clearTimeout(saveTimer);saveTimer=setTimeout(persist,350)}
+function changed(){confirmed=false;$('confirm').textContent='确认当前阅读层';$('saveStatus').textContent='修改待保存…';renderPreview();clearTimeout(saveTimer);saveTimer=setTimeout(persist,350)}
 function enabledRules(){return [...(current.components.quote.enabled?current.editorialRules:[]),...(current.customEditorialRules||[])]}
 function renderPreview(){
   const report=validate(current);
   $('validation').className='status'+(!report.valid?' error':report.warnings.length?' warning':'');
   $('validation').textContent=report.valid?(report.warnings.length?'结构检查通过；'+report.warnings.join('；'):'结构检查通过。发布前仍需检查公众号手机预览。'):report.errors.join('；');
-  for(const id of ['copyBody','downloadHtml','exportButton','confirm'])$(id).disabled=!report.valid;
+  for(const id of ['copyBody','copyTop','deliveryCopyArticle','downloadHtml','exportButton','confirm'])$(id).disabled=!report.valid;
   $('sourceText').textContent=current.transcriptMarkdown;
   $('sourceMeta').textContent=`${current.courseMeta.sourceFilename} · ${current.transcriptMarkdown.length.toLocaleString()} 字符`;
   $('series').textContent=current.courseMeta.series+' · 第 '+current.courseMeta.lessonNumber+' 课';
@@ -32,6 +32,8 @@ function renderPreview(){
   if(audio!==($('audio').getAttribute('src')||'')){if(audio)$('audio').src=audio;else $('audio').removeAttribute('src');$('audio').load()}
   $('audio').hidden=!audio;$('audioStatus').textContent=audio?'配置时长：'+(current.courseMeta.durationLabel||'待核对'):'未提供音频；可先排图文。';
   $('podcastText').textContent=podcastNotes(current);
+  $('notesTitle').textContent=current.courseMeta.fullTitle;
+  $('deliveryState').textContent=current.articleLink&&report.valid?'文章链接已回填':'文章链接待回填';
   renderMap();
 }
 function renderMap(){
@@ -46,15 +48,32 @@ function renderControls(){
   $('metadata').replaceChildren();for(const [key,label] of [['articleTitle','公众号标题'],['fullTitle','课程完整标题'],['subtitle','副标题'],['series','系列名称'],['durationLabel','音频时长（按真实素材填写）']])$('metadata').append(field(label,current.courseMeta[key],v=>{current.courseMeta[key]=v;changed()}));
   $('intro').value=current.courseMeta.podcast?.intro||'';$('notes').value=(current.courseMeta.podcast?.notes||[]).join('\n');$('articleLink').value=current.articleLink||'';
   $('covers').replaceChildren();$('assetLinks').replaceChildren();
-  for(const [key,label] of [['articleCover','公众号封面'],['podcastCover','播客封面']]){
-    const box=document.createElement('div'),img=document.createElement('img'),p=document.createElement('p'),input=document.createElement('input');
-    p.textContent=label;img.alt=label;const url=current.courseMeta.assets[key];if(url)img.src=url;else img.hidden=true;
-    img.onclick=()=>{$('largeImage').src=img.src;$('imageDialog').showModal()};
-    input.type='file';input.accept='image/png,image/jpeg,image/webp,image/gif';input.setAttribute('aria-label','替换'+label);
-    input.onchange=()=>{const file=input.files?.[0];if(!file)return;if(file.size>8*1024*1024||!/^image\/(png|jpeg|webp|gif)$/.test(file.type)){toast('请选择 8 MB 内的 PNG/JPG/WebP/GIF 图片。');return}const r=new FileReader();r.onload=()=>{current.courseMeta.assets[key]=r.result;current.courseMeta.assets[key+'Filename']=file.name;renderControls();changed()};r.readAsDataURL(file)};
-    box.append(img,p,input);$('covers').append(box);
+  for(const [key,label] of [['articleCover','公众号文章封面'],['podcastCover','播客音频封面']]){
+    const article=key==='articleCover',url=current.courseMeta.assets[key];
+    const box=document.createElement('section');box.className='cover-asset';box.id=article?'coverAsset':'podcastCoverAsset';
+    const heading=document.createElement('div');heading.className='cover-heading';
+    const headingText=document.createElement('div'),small=document.createElement('small'),title=document.createElement('h3'),state=document.createElement('span');
+    small.textContent=article?'公众号图文 · 封面母图':'播客音频 · 方形封面';title.textContent=label;state.className='asset-state';state.textContent=url?'封面已载入':'待添加封面';headingText.append(small,title);heading.append(headingText,state);
+    const body=document.createElement('div');body.className='cover-body';
+    const imageButton=document.createElement('button');imageButton.className='cover-image';imageButton.setAttribute('aria-label','放大预览'+label);
+    const img=document.createElement('img');img.alt=label;const empty=document.createElement('span');empty.className='empty-cover';empty.textContent='暂无封面';empty.hidden=!!url;img.hidden=!url;
+    const copy=document.createElement('div');copy.className='cover-copy';const info=document.createElement('p');
+    info.textContent=article?'保留原版封面母图，上传公众号时分别框选横版与方图。':'用于公众号助手的音频内容，替换后同步到右侧播客播放器。';
+    const spec=document.createElement('div');spec.className='cover-spec';spec.textContent=article?'横版 2.35:1 · 方图 1:1':'方图 1:1';
+    img.onload=()=>{spec.textContent=img.naturalWidth+' × '+img.naturalHeight+' · '+(article?'封面母图':'播客方图');state.textContent='封面已载入';state.style.color='';empty.hidden=true;img.hidden=false};
+    img.onerror=()=>{state.textContent='封面加载失败';state.style.color='#b45c44';empty.textContent='素材路径需检查';empty.hidden=false;img.hidden=true};
+    if(url)img.src=url;
+    const enlarge=()=>{if(!url||!img.naturalWidth){toast('请先添加或检查这张封面。');return}$('largeImage').src=img.src;$('imageDialog').showModal()};imageButton.onclick=enlarge;imageButton.append(img,empty);
+    const actions=document.createElement('div');actions.className='cover-actions';
+    const preview=document.createElement('button');preview.textContent='放大预览';preview.disabled=!url;preview.onclick=enlarge;
+    const input=document.createElement('input');input.hidden=true;input.type='file';input.accept='image/png,image/jpeg,image/webp,image/gif';input.setAttribute('aria-label','替换'+label);
+    input.onchange=()=>{const file=input.files?.[0];if(!file)return;if(file.size>8*1024*1024||!/^image\/(png|jpeg|webp|gif)$/.test(file.type)){toast('请选择 8 MB 内的 PNG/JPG/WebP/GIF 图片。');return}const r=new FileReader();r.onload=()=>{current.courseMeta.assets[key]=r.result;current.courseMeta.assets[key+'Filename']=file.name;renderControls();changed();if(!article)showTab('audioPane')};r.readAsDataURL(file)};
+    const upload=document.createElement('button');upload.textContent='上传／替换';upload.onclick=()=>input.click();actions.append(upload,preview);
+    if(url){const link=document.createElement('a');link.className='action';link.textContent=article?'下载母图':'下载当前图';link.href=url;link.download=current.courseMeta.assets[key+'Filename']||key;actions.append(link)}
+    else{const missing=document.createElement('button');missing.disabled=true;missing.textContent=article?'下载母图':'下载当前图';actions.append(missing)}
+    copy.append(info,spec,actions,input);body.append(imageButton,copy);box.append(heading,body);$('covers').append(box);
   }
-  for(const [key,label] of [['audio','下载音频'],['articleCover','下载图文封面'],['podcastCover','下载播客封面']]){const url=current.courseMeta.assets[key];if(!url)continue;const a=document.createElement('a');a.className='action';a.textContent=label;a.href=url;a.download=current.courseMeta.assets[key+'Filename']||key;$('assetLinks').append(a)}
+  for(const [key,label] of [['audio','下载播客音频'],['articleCover','下载公众号封面母图'],['podcastCover','下载播客方形封面']]){const url=current.courseMeta.assets[key];if(!url){const missing=document.createElement('span');missing.className='unavailable';missing.textContent=label+' · 待补';$('assetLinks').append(missing);continue}const a=document.createElement('a');a.className='action';a.textContent=label;a.href=url;a.download=current.courseMeta.assets[key+'Filename']||key;$('assetLinks').append(a)}
   $('components').replaceChildren();
   for(const key of KEYS){
     const c=current.components[key],d=document.createElement('details'),summary=document.createElement('summary'),toggle=document.createElement('input'),name=document.createElement('span');d.className='card';d.id='component-'+key;
@@ -91,7 +110,12 @@ async function copy(html,text){
   }
 }
 $('copyBody').onclick=()=>{if(!lastHtml)return;const d=document.createElement('div');d.innerHTML=lastHtml;copy(lastHtml,d.textContent)};
+$('copyTop').onclick=$('deliveryCopyArticle').onclick=()=>$('copyBody').click();
+$('deliveryCopyIntro').onclick=()=>$('copyNotes').click();
+$('deliveryTitle').onclick=()=>$('copyTitle').click();
+$('deliveryTranscript').onclick=()=>download('transcript-review.txt','章节与逐字稿供校对。此稿不含时间码，时间点须按真实音频识别或人工试听确定。\n\n'+current.transcriptMarkdown);
 $('copyTitle').onclick=()=>copy('',current.courseMeta.articleTitle);
+$('copySubtitle').onclick=()=>current.courseMeta.subtitle?copy('',current.courseMeta.subtitle):toast('本课未填写副标题。');
 $('copyNotes').onclick=()=>copy('',podcastNotes(current));
 $('downloadHtml').onclick=()=>{if(lastHtml)download('article.html',lastHtml,'text/html;charset=utf-8')};
 $('downloadNotes').onclick=()=>download('podcast-notes.txt',podcastNotes(current));
@@ -111,7 +135,10 @@ $('addRule').onclick=()=>{const text=$('customText').value.trim();if(!text){toas
 $('article').onmouseup=()=>{const s=window.getSelection();if(s&&!s.isCollapsed&&$('article').contains(s.anchorNode)&&$('article').contains(s.focusNode))$('customText').value=s.toString().trim()};
 $('originalOnly').onclick=()=>{KEYS.forEach(k=>current.components[k].enabled=false);current.customEditorialRules=[];renderControls();changed()};
 $('confirm').onclick=()=>{if(!validate(current).valid)return;confirmed=true;$('confirm').textContent='阅读层已确认';persist();toast('阅读层已确认。请检查封面、音频和公众号实际预览。')};
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));$('articlePane').classList.toggle('hidden',b.dataset.tab!=='articlePane');$('audioPane').classList.toggle('hidden',b.dataset.tab!=='audioPane')});
+function showTab(id){for(const name of ['articlePane','audioPane','notesPane'])$(name).classList.toggle('hidden',name!==id);document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===id))}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+$('openNotes').onclick=()=>showTab('notesPane');
+$('openArticle').onclick=()=>{if(/^https:\/\/mp\.weixin\.qq\.com\//.test(current.articleLink||''))window.open(current.articleLink,'_blank','noopener');else showTab('articlePane')};
 $('closeImage').onclick=()=>$('imageDialog').close();
 $('audio').onloadedmetadata=()=>{$('audioStatus').textContent='实际音频时长：'+Math.floor($('audio').duration/60)+' 分 '+Math.round($('audio').duration%60)+' 秒'};
 $('audio').onerror=()=>{$('audioStatus').textContent='音频加载失败，请检查素材路径，并通过本地 HTTP 预览重试。'};
