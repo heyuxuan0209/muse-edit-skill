@@ -47,8 +47,8 @@ try{
   assert.ok((await page.locator('#article').textContent()).includes('只做一个小实验，再回看结果。'));
   // Switch formats and add/remove independent custom rules.
   await page.locator('#rules button').filter({hasText:'高亮'}).first().click();
-  await page.locator('#customText').fill('一次只改变一个条件');await page.locator('#addRule').click();assert.equal(await page.locator('#rules .rule').count(),2);
-  await page.locator('#rules button').filter({hasText:'移除'}).click();assert.equal(await page.locator('#rules .rule').count(),1);
+  await page.locator('#customText').fill('一次只改变一个条件');await page.locator('#addRule').click();assert.equal(await page.locator('#customRules .rule').count(),1);
+  await page.locator('#customRules button').filter({hasText:'移除'}).click();assert.equal(await page.locator('#rules .rule').count(),1);
   const htmlBefore=await page.evaluate(()=>renderArticle(current));
   // Real clipboard, not a mocked navigator.clipboard.
   await page.locator('#copyBody').click();await page.waitForFunction(()=>document.getElementById('toast').textContent.startsWith('已复制，请到'));
@@ -106,9 +106,29 @@ try{
   const imported={...demo,courseMeta:{...demo.courseMeta,id:'another-course',articleTitle:'另一份课程'}};
   const another=path.join(out,'another.course.json');fs.writeFileSync(another,JSON.stringify(imported));await page.locator('#importFile').setInputFiles(another);
   await page.waitForFunction(()=>document.getElementById('title').textContent==='另一份课程');await page.reload();assert.equal(await page.locator('#title').textContent(),'另一份课程');
+  // Twenty independent custom highlights must survive editing, reload and export/import.
+  await page.setViewportSize({width:1500,height:1000});
+  const many=structuredClone(demo),phrases=Array.from({length:20},(_,i)=>'第'+String(i+1).padStart(2,'0')+'条独立重点：观察当前变化。');
+  many.transcriptMarkdown+='\n'+phrases.join('\n\n')+'\n中文说"你好"!\n';
+  const manyFile=path.join(out,'many.course.json');fs.writeFileSync(manyFile,JSON.stringify(many));await page.locator('#importFile').setInputFiles(manyFile);
+  for(let i=0;i<phrases.length;i++){
+    await page.locator('#customText').fill(phrases[i]);await page.locator('#customFormat').selectOption(['highlight','bold','quote'][i%3]);await page.locator('#addRule').click();
+    assert.equal(await page.locator('#customRules .rule').count(),i+1);assert.equal(await page.locator('#customText').inputValue(),'');
+  }
+  assert.equal(await page.locator('#addRule').textContent(),'继续添加第 21 处');
+  await page.locator('#customText').fill(phrases[0]);await page.locator('#addRule').click();assert.equal(await page.locator('#customRules .rule').count(),20);assert.ok((await page.locator('#customMessage').textContent()).includes('已添加的重点保留'));
+  await page.locator('#component-reflection summary').click();await page.locator('#component-reflection textarea').fill('多次添加后模块仍可编辑');
+  await page.waitForFunction(()=>document.getElementById('saveStatus').textContent.includes('已保存'));await page.reload();assert.equal(await page.locator('#customRules .rule').count(),20);assert.ok((await page.locator('#article').textContent()).includes('多次添加后模块仍可编辑'));
+  const manyDownload=page.waitForEvent('download');await page.locator('#exportButton').click();const manyExport=path.join(out,'many-export.json');await(await manyDownload).saveAs(manyExport);assert.equal(JSON.parse(fs.readFileSync(manyExport)).customEditorialRules.length,20);
+  await page.locator('#importFile').setInputFiles(manyExport);assert.equal(await page.locator('#customRules .rule').count(),20);
+  await page.locator('#customRules .rule').nth(10).getByRole('button',{name:'引用',exact:true}).click();assert.equal(await page.evaluate(()=>current.customEditorialRules[10].format),'quote');
+  await page.locator('#customRules .rule').first().getByRole('button',{name:'移除',exact:true}).click();assert.equal(await page.locator('#customRules .rule').count(),19);assert.equal(await page.locator('#sourceText').textContent(),many.transcriptMarkdown);
+  // Selection maps typographically normalized preview text back to the unchanged source.
+  await page.locator('#article [data-source-line]').filter({hasText:'中文说'}).evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);const selected=window.getSelection();selected.removeAllRanges();selected.addRange(range);el.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}))});
+  assert.equal(await page.locator('#customText').inputValue(),'中文说"你好"!');await page.locator('#addRule').click();assert.equal(await page.locator('#customRules .rule').count(),20);
   // Storage failures must be visible; keep the file export usable.
   await page.evaluate(()=>{Storage.prototype.setItem=function(){throw new DOMException('Full','QuotaExceededError')}});
   await page.locator('#originalOnly').click();await page.waitForFunction(()=>document.getElementById('saveStatus').textContent.includes('保存失败'));
   assert.equal(await page.locator('#exportButton').isEnabled(),true);
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['source-preserved','real-reload-save','editorial-edit','custom-rule','real-clipboard-html','export-import-roundtrip','invalid-import-preserves-state','link-validation','imported-course-reload','storage-failure-is-visible','mobile-overflow','console'],screenshots:out},null,2));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['source-preserved','real-reload-save','editorial-edit','custom-rule','20-custom-rules-reload-export-edit-remove','real-clipboard-html','export-import-roundtrip','invalid-import-preserves-state','link-validation','imported-course-reload','storage-failure-is-visible','mobile-overflow','console'],screenshots:out},null,2));
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve))}

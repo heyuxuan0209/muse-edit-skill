@@ -136,13 +136,13 @@ function renderPublishState(){
   if(confirmed)$('publishChecklist').textContent='原稿保留；'+(current.courseMeta.assets.audio?'音频已配置，发布时需在公众号后台插入原生音频。':'音频待补。')+' 封面请检查裁切；配套文章链接'+(current.articleLink?'已回填。':'待回填。')+' 最后核对公众号手机预览。';
 }
 function renderRules(){
-  $('rules').replaceChildren();const all=[...current.editorialRules,...(current.customEditorialRules||[])];$('ruleCount').textContent=all.length+' 处';
+  $('rules').replaceChildren();$('customRules').replaceChildren();$('customCount').textContent=current.customEditorialRules.length+' 处';$('addRule').textContent=(current.customEditorialRules.length?'继续添加第 ':'添加第 ')+(current.customEditorialRules.length+1)+' 处';const all=[...current.editorialRules,...(current.customEditorialRules||[])];$('ruleCount').textContent=current.editorialRules.length+' 处';
   const labels={none:'不处理',highlight:'高亮',bold:'加粗',quote:'引用'};
-  all.forEach(rule=>{const row=document.createElement('div');row.className='rule';const title=document.createElement('strong');title.textContent=rule.label+' · 推荐：'+labels[rule.recommended]+(!current.components.quote.enabled&&current.editorialRules.includes(rule)?'（整组已关闭）':'');const quote=document.createElement('blockquote');quote.textContent=rule.text;const why=document.createElement('p');why.className='muted';why.textContent=rule.reason;const buttons=document.createElement('div');buttons.className='row';
+  all.forEach(rule=>{const row=document.createElement('div');row.className='rule';const title=document.createElement('strong');title.textContent=(current.customEditorialRules.includes(rule)?'自定义重点 '+(current.customEditorialRules.indexOf(rule)+1):rule.label)+' · 推荐：'+labels[rule.recommended]+(!current.components.quote.enabled&&current.editorialRules.includes(rule)?'（整组已关闭）':'');const quote=document.createElement('blockquote');quote.textContent=rule.text;const why=document.createElement('p');why.className='muted';why.textContent=rule.reason;const buttons=document.createElement('div');buttons.className='row';
     for(const f of FORMATS){const b=document.createElement('button');b.textContent=labels[f];b.className=rule.format===f?'active':'';b.setAttribute('aria-pressed',String(rule.format===f));b.onclick=()=>{rule.format=f;renderRules();changed()};buttons.append(b)}
     if(current.customEditorialRules.includes(rule)){const b=document.createElement('button');b.textContent='移除';b.onclick=()=>{current.customEditorialRules=current.customEditorialRules.filter(r=>r!==rule);renderRules();changed()};buttons.append(b)}
     row.addEventListener('click',()=>focusPreview(sourceTarget(rule.text)));
-    row.append(title,quote,why,buttons);$('rules').append(row);
+    row.append(title,quote,why,buttons);(current.customEditorialRules.includes(rule)?$('customRules'):$('rules')).append(row);
   });
 }
 async function copy(html,text){
@@ -175,8 +175,27 @@ $('importFile').onchange=async()=>{
 $('intro').oninput=()=>{current.courseMeta.podcast??={intro:'',notes:[]};current.courseMeta.podcast.intro=$('intro').value;changed()};
 $('notes').oninput=()=>{current.courseMeta.podcast??={intro:'',notes:[]};current.courseMeta.podcast.notes=$('notes').value.split('\n').filter(Boolean);changed()};
 $('articleLink').oninput=()=>{current.articleLink=$('articleLink').value.trim();changed()};
-$('addRule').onclick=()=>{const text=$('customText').value.trim();if(!text){toast('请填写原句。');return}const trial=clone(current);trial.customEditorialRules??=[];trial.customEditorialRules.push({id:'custom-'+Date.now(),label:'自定义重点',text,reason:'由你补充',recommended:$('customFormat').value,format:$('customFormat').value,custom:true});const r=validate(trial);if(!r.valid){toast(r.errors[0]);return}current=trial;$('customText').value='';renderControls();changed()};
-$('article').onmouseup=()=>{const s=window.getSelection();if(s&&!s.isCollapsed&&$('article').contains(s.anchorNode)&&$('article').contains(s.focusNode))$('customText').value=s.toString().trim()};
+function customMessage(text,error=false){$('customMessage').textContent=text;$('customMessage').style.color=error?'#a34832':''}
+$('addRule').onclick=()=>{
+  const text=$('customText').value.trim();if(!text){customMessage('请先在右侧正文选字，或粘贴原句。',true);return}
+  const trial=clone(current);trial.customEditorialRules??=[];
+  trial.customEditorialRules.push({id:'custom-'+crypto.randomUUID(),label:'自定义重点',text,reason:'由你补充',recommended:$('customFormat').value,format:$('customFormat').value,custom:true});
+  const r=validate(trial);if(!r.valid){customMessage(r.errors[0]+' 已添加的重点保留。',true);return}
+  current.customEditorialRules=trial.customEditorialRules;$('customText').value='';renderRules();changed();focusPreview(sourceTarget(text),false);
+  customMessage('已添加第 '+current.customEditorialRules.length+' 处。可继续选下一句，每处都能独立修改或移除。');$('customText').focus({preventScroll:true});
+};
+function captureCustomSelection(){
+  const selection=window.getSelection();if(!selection||selection.isCollapsed||!selection.rangeCount)return;
+  const range=selection.getRangeAt(0),start=range.startContainer.nodeType===1?range.startContainer:range.startContainer.parentElement;
+  const source=start.closest('[data-source-line]');
+  if(!source||!$('article').contains(source)||!source.contains(range.endContainer))return;
+  const prefix=document.createRange();prefix.selectNodeContents(source);prefix.setEnd(range.startContainer,range.startOffset);
+  const original=plainInline(current.transcriptMarkdown.split(/\r?\n/)[Number(source.dataset.sourceLine)].trim());
+  $('customText').value=original.slice(prefix.toString().length,prefix.toString().length+range.toString().length).trim();
+  $('customEditorial').open=true;customMessage('已选原句。选择形式后添加，再继续选择下一处。');
+}
+$('article').addEventListener('mouseup',captureCustomSelection);
+$('article').addEventListener('touchend',()=>setTimeout(captureCustomSelection,0));
 $('originalOnly').onclick=()=>{KEYS.forEach(k=>current.components[k].enabled=false);current.customEditorialRules=[];renderControls();changed()};
 $('confirm').onclick=()=>{if(!validate(current).valid)return;confirmed=true;$('confirm').textContent='阅读层已确认';persist();renderPublishState();$('publishReady').scrollIntoView({behavior:'smooth',block:'center'});toast('阅读层已确认。请检查封面、音频和公众号实际预览。')};
 function showTab(id){for(const name of ['articlePane','audioPane','notesPane'])$(name).classList.toggle('hidden',name!==id);document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===id))}
