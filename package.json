@@ -2,6 +2,7 @@
   "name": "muse-edit-skill",
   "version": "0.1.4",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "test": "node --test tests/core.test.mjs",
