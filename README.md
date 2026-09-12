@@ -1,51 +1,147 @@
-# Muse Edit Skill
+# Muse Edit
 
-把课程逐字稿与音频变成可编辑的阅读层、公众号图文和播客发布材料。AI 准备建议，网页负责确认与精修，脚本负责保留原稿和打包。
+**把一份课程逐字稿，变成可以审、可以改、可以直接发布的公众号图文与播客材料。**
 
-这是从自用 Muse 工作台提取的便携技能版。它兼容现有完整课程 JSON `1.0`，不包含真实课程、音频、品牌人物或私人路径；也没有改动 KW 或 gzh-design。
+很多课程内容不是写得不好，而是发布时只剩一整屏逐字稿：读者抓不住重点，编辑又不敢让 AI 改坏原意。Muse Edit 在原稿外增加一层可撤销的阅读设计——听读路径、概念卡、行动步骤、提醒、练习和重点表达——再把确认后的内容打包成公众号与播客发布材料。
 
-## 安装到 Codex
+![Muse Edit 三栏课程工作台](docs/muse-edit-workbench.png)
 
-需 Node.js 22+，正常使用不需要 npm install。克隆本仓后，把 `skills/muse-edit` 整个目录复制到 `~/.codex/skills/muse-edit`（已有同名技能时先比较，不直接覆盖）。重启会话后使用：
+左边是锁定的完整原稿，中间决定增加哪些阅读层，右边实时看到发布效果。点击中间的模块，右侧会自动定位到对应内容；不满意可以修改、关闭或恢复建议。
 
-> 用 $muse-edit，把这份逐字稿和音频做成课程图文与播客发布包，保留原稿，打开让我检查。
+## 它能帮你完成什么
 
-其他支持 SKILL.md 的 Agent 可按其技能目录安装。
+给它逐字稿，并按需提供音频和两类封面，它会生成一个可在浏览器中继续编辑的课程包：
 
-## 本地演示
-
-```bash
-node skills/muse-edit/scripts/muse.mjs build --course examples/demo.course.json --source examples/transcript.md --out output/demo
+```text
+逐字稿 + 音频 + 封面
+          ↓
+   AI 提出阅读层建议
+          ↓
+你在三栏工作台逐项确认和精修
+          ↓
+公众号图文 + 播客简介 + 原稿/章节校对稿 + 全部素材
 ```
 
-打开 `output/demo/index.html`。示例是虚构的学习方法短课，没有真实音频或品牌图，工作台会如实提示待补素材。
+- 完整保留原稿，不改写、删减或移动课程正文。
+- 阅读层按原文锚点插入，每个模块都能编辑、关闭、恢复和定位预览。
+- AI 推荐重点与自定义重点分开管理；可连续添加多处，逐条选择高亮、加粗、引用或不处理。
+- 同时管理公众号封面、播客方形封面、音频和配套文章链接。
+- 分别预览公众号图文、播客播放页和播客原文，并导出对应发布材料。
+- 修改自动保存在当前浏览器；课程配置可导出、重新导入和再次构建。
 
-三栏分别是原稿、阅读层和预览。支持卡片开关／编辑／锚点、重点高亮／加粗／引用、自定义重点、封面替换与下载、音频预览、公众号链接回填、复制与导出。
+## 30 秒体验
 
-顶部沿用“导入课程包／导出本课配置／复制到公众号”。中栏直接显示公众号文章封面、播客音频封面与本期发布交付包；无需展开设置寻找。右栏提供公众号图文、播客播放、播客原文三种预览。
+需要 Node.js 22+，演示构建不需要安装 npm 依赖：
+
+```bash
+git clone https://github.com/heyuxuan0209/muse-edit-skill.git
+cd muse-edit-skill
+node skills/muse-edit/scripts/muse.mjs build \
+  --course examples/demo.course.json \
+  --source examples/transcript.md \
+  --out output/demo
+open output/demo/index.html
+```
+
+最后一行适用于 macOS；其他系统直接用浏览器打开 `output/demo/index.html`。演示使用虚构短课，不包含真实音频、品牌图片或私人内容。页面会如实显示哪些素材尚未提供。
+
+## 作为 Codex Skill 使用
+
+把 `skills/muse-edit` 复制到你的 Codex skills 目录：
+
+```bash
+mkdir -p ~/.codex/skills/muse-edit
+cp -R skills/muse-edit/. ~/.codex/skills/muse-edit/
+```
+
+开启新会话后，可以直接说：
+
+> 用 $muse-edit，把这份逐字稿和音频做成课程图文与播客发布包。保留原稿，完成后打开工作台让我检查。
+
+Codex 会读取材料、准备课程配置、校验原稿和素材、生成发布目录并打开工作台。页面本身不会调用模型，也不会把内容上传到外部服务。
+
+其他支持 `SKILL.md` 的 Agent，也可以把同一目录安装为技能。
 
 ## 处理自己的课程
 
+### 从逐字稿开始
+
 ```bash
-node skills/muse-edit/scripts/muse.mjs init --source /path/to/transcript.md --title "课程标题" --id lesson-01 --out output/lesson-source --audio /path/to/audio.mp3 --article-cover /path/to/article.png --podcast-cover /path/to/podcast.png
-# 由 Agent 按原稿填写 output/lesson-source/course.json 的阅读层与播客文案。
-node skills/muse-edit/scripts/muse.mjs build --course output/lesson-source/course.json --source /path/to/transcript.md --out output/lesson-release --require-assets
+node skills/muse-edit/scripts/muse.mjs init \
+  --source /path/to/transcript.md \
+  --title "课程标题" \
+  --id lesson-01 \
+  --out output/lesson-source \
+  --audio /path/to/audio.mp3 \
+  --article-cover /path/to/article-cover.png \
+  --podcast-cover /path/to/podcast-cover.png
 ```
 
-现有课程的素材位于另一个目录时，加 `--assets /path/to/project-root`。可选 `--validator /path/to/gzh-design/scripts/validate_gzh_html.py` 调用本机已安装的公众号校验器。
+`init` 会保留原稿并创建待编辑的 `course.json`。让 Agent 按原稿补充阅读层建议后，再构建发布包：
 
-输出包含 `index.html`、课程 JSON、原稿、干净正文 HTML、标题、节目笔记、转写校对稿、音频／封面和校验报告。复制整个输出文件夹即可迁移。
+```bash
+node skills/muse-edit/scripts/muse.mjs build \
+  --course output/lesson-source/course.json \
+  --source /path/to/transcript.md \
+  --out output/lesson-release \
+  --require-assets
+```
 
-## 保存与发布边界
+### 从现有 Muse 课程包开始
 
-- 网页自动保存到当前浏览器，不能自动写回磁盘。**导出本课配置**是文件备份；**下载当前正文**是修改后的 HTML，原来的 `article.html` 不会自动变化。
-- 用导出的 JSON 重新 build 到新目录，可生成更新后的完整交付包。
-- 剪贴板受限时，在发布目录启动 `python3 -m http.server 8765 --bind 127.0.0.1`，再打开本地地址；端口占用时换一个。
-- 图文和播客分别发布。工具不自动上传、不伪造时间轴、不保证平台二次清洗后的排版。
-- 主要支持课程逐字稿 Markdown 子集，复杂表格／图片／HTML 或多主题自动排版仍适合 gzh-design。两者没有无损 HTML 编辑互通。
-- 浏览器草稿不是跨设备同步。素材未提供时可以预览，完整交付用 `--require-assets` 检查。
+它兼容 Muse 课程 JSON `1.0`。可以在工作台顶部点击“导入课程包”，也可以直接运行：
 
-## 开发验证
+```bash
+node skills/muse-edit/scripts/muse.mjs build \
+  --course /path/to/lesson.course.json \
+  --assets /path/to/project-root \
+  --out output/lesson-release \
+  --require-assets
+```
+
+当 JSON 中的图片和音频路径相对于另一个项目目录时，用 `--assets` 指向素材根目录。若本机已有 gzh-design 校验器，还可添加：
+
+```bash
+--validator /path/to/gzh-design/scripts/validate_gzh_html.py
+```
+
+## 你会得到什么
+
+每次构建都会生成一个可整体迁移的目录：
+
+| 文件 | 用途 |
+|---|---|
+| `index.html` | 三栏工作台，也是主要入口 |
+| `course.json` | 可重新导入的课程配置 |
+| `article.html` | 构建时的干净公众号正文 |
+| `title.txt` | 公众号标题 |
+| `podcast-notes.txt` | 轻量播客简介与配套文章入口 |
+| `transcript.md` | 完整原稿副本 |
+| `transcript-review.txt` | 章节标题与转写校对稿，不伪造时间码 |
+| `assets/` | 音频与封面 |
+| `validation.json` | 原稿、结构和素材检查结果 |
+
+在浏览器里修改后，“导出本课配置”保存最新配置，“下载当前正文”取得最新 HTML。目录中的 `article.html` 是构建那一刻的快照；要生成一套更新后的完整目录，请用导出的 JSON 再执行一次 `build`。
+
+## Muse Edit 和 gzh-design 的关系
+
+Muse Edit 适合有原稿、有音频、有固定课程结构的内容：重点是保护原稿、设计阅读路径和准备双发布材料。
+
+gzh-design 更适合普通公众号文章的多主题自动排版。Muse Edit 不会把 gzh-design 已排好的 HTML 转回 Markdown，也没有复制它的主题库；需要自由换主题时，应直接使用 gzh-design。
+
+## 当前边界
+
+- 图文和播客需要分别发布；原生音频、转写和时间轴不会随公众号 HTML 一起复制。
+- 工具不会登录或发布到公众号，也不保证微信平台二次清洗后的最终样式；发布前仍要检查手机预览。
+- 浏览器草稿保存在当前设备和当前页面路径，不跨设备同步。导出的课程配置才是可迁移备份。
+- 主要支持标题、段落、粗体、分隔线和围栏代码等逐字稿 Markdown 子集。复杂表格、内嵌 HTML、图片和链接需要单独检查。
+- 当前工作台是从原 Muse 课程原型提炼的独立实现，功能流程已覆盖，但编辑提交方式和部分视觉细节并非像素级复刻。完整差异见 [一致性排查](AUDIT-PARITY.md)。
+
+## 质量状态
+
+当前版本已覆盖连续添加 20 处自定义重点、浏览器草稿恢复、课程导入导出、真实剪贴板 HTML、封面替换、移动端布局和异常输入保护。总览课与第 1—6 课曾使用真实素材做本地验证；仓库只保留合成示例和工具代码。
+
+开发验证：
 
 ```bash
 npm ci
@@ -54,6 +150,8 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-浏览器测试使用独立测试环境与合成内容，不会连接 KW、公众号或调用付费模型。也可用 `MUSE_BROWSER_EXECUTABLE` 指定本机 Chromium/Chrome 可执行文件。
+详细检查范围见 [VERIFICATION.md](VERIFICATION.md)。
 
-本仓没有复制 gzh-design 的主题库或校验器；外部校验仅在用户提供脚本路径时调用。真实内容的使用和发布权限由内容所有者决定。
+## 隐私说明
+
+仓库不包含真实课程、音频、品牌人物或私人路径。浏览器测试只使用合成内容，不连接知识库、公众号或付费模型。真实内容是否交给 Agent 处理、保存或发布，由内容所有者决定。
